@@ -1,0 +1,427 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/hooks/use-toast";
+import { FileText, Send } from "lucide-react";
+
+
+interface MPPFormData {
+  title: string;
+  aboutRole: string;
+  responsibilities: string;
+  requirements: string;
+  
+  salaryMin: string;
+  salaryMax: string;
+  quantity: number;
+  priority: 'high' | 'medium' | 'low';
+  justification: string;
+  dateNeeded: string;
+  reportTo: string;
+  budgeted: 'budgeted' | 'not_budgeted';
+  recruitmentStatus: 'new' | 'replacement' | 'expansion';
+  specialNeeds: string;
+  provinceId: string;
+  provinceName: string;
+  regencyId: string;
+  regencyName: string;
+}
+
+const initialFormData: MPPFormData = {
+  title: '',
+  aboutRole: '',
+  responsibilities: '',
+  requirements: '',
+  
+  salaryMin: '',
+  salaryMax: '',
+  quantity: 1,
+  priority: 'medium',
+  justification: '',
+  dateNeeded: '',
+  reportTo: '',
+  budgeted: 'budgeted',
+  recruitmentStatus: 'new',
+  specialNeeds: '',
+  provinceId: '',
+  provinceName: '',
+  regencyId: '',
+  regencyName: '',
+};
+
+export default function HiringManagerMPP() {
+  const [formData, setFormData] = useState<MPPFormData>(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [provinces, setProvinces] = useState<{ id: string; name: string }[]>([]);
+  const [regencies, setRegencies] = useState<{ id: string; name: string }[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetch("https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json")
+      .then((res) => res.json())
+      .then((data) => setProvinces(data))
+      .catch(() => toast({ title: "Error", description: "Failed to load provinces", variant: "destructive" }));
+  }, []);
+
+  useEffect(() => {
+    if (formData.provinceId) {
+      setRegencies([]);
+      setFormData((prev) => ({ ...prev, regencyId: '', regencyName: '' }));
+      fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${formData.provinceId}.json`)
+        .then((res) => res.json())
+        .then((data) => setRegencies(data))
+        .catch(() => toast({ title: "Error", description: "Failed to load cities", variant: "destructive" }));
+    }
+  }, [formData.provinceId]);
+
+  const parseRupiah = (value: string): number => {
+    return Number(value.replace(/\D/g, '')) || 0;
+  };
+
+  const formatRupiah = (value: string | number): string => {
+    const str = String(value ?? '');
+    const num = Number(str.replace(/\D/g, ''));
+    if (!num) return '';
+    return num.toLocaleString('id-ID');
+  };
+
+  const handleSalaryChange = (field: 'salaryMin' | 'salaryMax', raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    setFormData((prev) => ({ ...prev, [field]: digits }));
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === 'quantity' ? Number(value) : value,
+    }));
+  };
+
+  const handlePriorityChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      priority: value as 'high' | 'medium' | 'low',
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.title || !formData.aboutRole || !formData.responsibilities || 
+        !formData.requirements || !formData.justification ||
+        !formData.dateNeeded || !formData.reportTo || !formData.provinceId || !formData.regencyId) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const salaryMinNum = parseRupiah(formData.salaryMin);
+    const salaryMaxNum = parseRupiah(formData.salaryMax);
+
+    if (salaryMinNum > salaryMaxNum && salaryMaxNum > 0) {
+      toast({
+        title: "Validation Error",
+        description: "Minimum salary cannot exceed maximum salary.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    
+    toast({
+      title: "MPP Request Submitted",
+      description: "Your manpower planning request has been sent to HR for approval.",
+    });
+    
+    setFormData(initialFormData);
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Manpower Planning Request</h1>
+        <p className="text-muted-foreground">Submit a new position request for HR approval</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            New MPP Request
+          </CardTitle>
+          <CardDescription>
+            Fill out the form below to request a new position for your department
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="title">Position Title *</Label>
+                <Input
+                  id="title"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Senior Software Engineer"
+                />
+            </div>
+
+              <div className="space-y-2">
+                <Label>Province *</Label>
+                <Select
+                  value={formData.provinceId}
+                  onValueChange={(value) => {
+                    const prov = provinces.find((p) => p.id === value);
+                    setFormData((prev) => ({ ...prev, provinceId: value, provinceName: prov?.name || '' }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select province" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {provinces.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>City / Regency *</Label>
+                <Select
+                  value={formData.regencyId}
+                  onValueChange={(value) => {
+                    const reg = regencies.find((r) => r.id === value);
+                    setFormData((prev) => ({ ...prev, regencyId: value, regencyName: reg?.name || '' }));
+                  }}
+                  disabled={!formData.provinceId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={formData.provinceId ? "Select city" : "Select province first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regencies.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="dateNeeded">Date Needed *</Label>
+                <Input
+                  id="dateNeeded"
+                  name="dateNeeded"
+                  type="date"
+                  value={formData.dateNeeded}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reportTo">Report To *</Label>
+                <Input
+                  id="reportTo"
+                  name="reportTo"
+                  value={formData.reportTo}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Engineering Manager"
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Budget Status *</Label>
+                <RadioGroup
+                  value={formData.budgeted}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, budgeted: value as 'budgeted' | 'not_budgeted' }))}
+                  className="flex gap-4 pt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="budgeted" id="budgeted" />
+                    <Label htmlFor="budgeted" className="font-normal">Budgeted</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="not_budgeted" id="not_budgeted" />
+                    <Label htmlFor="not_budgeted" className="font-normal">Not Budgeted</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Recruitment Status *</Label>
+                <Select
+                  value={formData.recruitmentStatus}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, recruitmentStatus: value as 'new' | 'replacement' | 'expansion' }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New Position</SelectItem>
+                    <SelectItem value="replacement">Replacement</SelectItem>
+                    <SelectItem value="expansion">Expansion</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="specialNeeds">Special Needs</Label>
+              <Textarea
+                id="specialNeeds"
+                name="specialNeeds"
+                value={formData.specialNeeds}
+                onChange={handleInputChange}
+                placeholder="Any special requirements, certifications, tools, or accommodations needed..."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="quantity">Quantity *</Label>
+                <Input
+                  id="quantity"
+                  name="quantity"
+                  type="number"
+                  min="1"
+                  value={formData.quantity}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="aboutRole">About This Role *</Label>
+              <Textarea
+                id="aboutRole"
+                name="aboutRole"
+                value={formData.aboutRole}
+                onChange={handleInputChange}
+                placeholder="Provide a brief description of the role and its purpose..."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="responsibilities">Responsibilities *</Label>
+              <Textarea
+                id="responsibilities"
+                name="responsibilities"
+                value={formData.responsibilities}
+                onChange={handleInputChange}
+                placeholder="List the key responsibilities for this role..."
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="requirements">Requirements *</Label>
+              <Textarea
+                id="requirements"
+                name="requirements"
+                value={formData.requirements}
+                onChange={handleInputChange}
+                placeholder="Describe the required skills, experience, and qualifications..."
+                rows={4}
+              />
+            </div>
+
+
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="salaryMin">Salary Range (Min)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">Rp</span>
+                  <Input
+                    id="salaryMin"
+                    type="text"
+                    inputMode="numeric"
+                    value={formatRupiah(formData.salaryMin)}
+                    onChange={(e) => handleSalaryChange('salaryMin', e.target.value)}
+                    placeholder="15.000.000"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="salaryMax">Salary Range (Max)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">Rp</span>
+                  <Input
+                    id="salaryMax"
+                    type="text"
+                    inputMode="numeric"
+                    value={formatRupiah(formData.salaryMax)}
+                    onChange={(e) => handleSalaryChange('salaryMax', e.target.value)}
+                    placeholder="25.000.000"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority *</Label>
+                <Select value={formData.priority} onValueChange={handlePriorityChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="justification">Justification *</Label>
+              <Textarea
+                id="justification"
+                name="justification"
+                value={formData.justification}
+                onChange={handleInputChange}
+                placeholder="Explain why this position is needed..."
+                rows={4}
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isSubmitting} size="lg">
+                {isSubmitting ? (
+                  "Submitting..."
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Submit Request
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
